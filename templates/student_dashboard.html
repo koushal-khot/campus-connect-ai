@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Student dashboard - Campus Connect AI{% endblock %}
+
+{% block content %}
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">Campus Connect<span>AI</span></div>
+    <nav>
+      <a class="active" href="{{ url_for('student_dashboard') }}">Dashboard</a>
+      <a class="soon" aria-disabled="true">Team Matcher <small>soon</small></a>
+      <a class="soon" aria-disabled="true">Study Helper <small>soon</small></a>
+      <a class="soon" aria-disabled="true">Notes Summarizer <small>soon</small></a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="who">{{ user.full_name }}</div>
+      <a href="{{ url_for('logout') }}">Log out</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1>Hi, {{ user.full_name.split()[0] }}</h1>
+        <p class="muted">
+          {{ stats.open_projects }} project{{ '' if stats.open_projects == 1 else 's' }} on campus
+          {{ 'is' if stats.open_projects == 1 else 'are' }} open to new teammates.
+        </p>
+      </div>
+      <button class="btn btn-primary" data-open="project-dialog">Post a project</button>
+    </header>
+
+    <section class="panel feed">
+      <h2>Project feed</h2>
+      {% if projects %}
+        {% for p in projects %}
+        <article class="project">
+          <div class="project-top">
+            <h3>{{ p.title }}</h3>
+            <span class="badge badge-{{ p.status }}">{{ p.status.replace('_', ' ') }}</span>
+          </div>
+          <p>{{ p.description }}</p>
+          <div class="chips">
+            {% for t in p.tech_stack|csv %}<span class="chip">{{ t }}</span>{% endfor %}
+          </div>
+          {% if p.looking_for %}
+            <p class="needs"><strong>Needs:</strong> {{ p.looking_for }}</p>
+          {% endif %}
+          <p class="meta">
+            {{ p.owner_name }}, {{ p.created_at|day }}
+            {% if p.github_url %}- <a href="{{ p.github_url }}" target="_blank" rel="noopener noreferrer">GitHub</a>{% endif %}
+          </p>
+        </article>
+        {% endfor %}
+      {% else %}
+        <p class="empty">No projects yet. Post yours so others can join.</p>
+      {% endif %}
+    </section>
+  </main>
+
+  <aside class="rail">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Your profile</h2>
+        <button class="link-btn" data-open="profile-dialog">Edit</button>
+      </div>
+      <p class="muted">
+        {{ user.branch or 'Branch not set' }}{% if user.year %}, year {{ user.year }}{% endif %}
+      </p>
+      <div class="chips">
+        {% for s in user.skills|csv %}<span class="chip">{{ s }}</span>
+        {% else %}<span class="empty">Add your skills so teammates can find you.</span>{% endfor %}
+      </div>
+      {% if user.bio %}<p class="bio">{{ user.bio }}</p>{% endif %}
+      <dl class="stats">
+        <div><dt>Your projects</dt><dd>{{ stats.my_projects }}</dd></div>
+        <div><dt>Students on campus</dt><dd>{{ stats.students }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel">
+      <h2>Announcements</h2>
+      {% for a in announcements %}
+      <article class="notice">
+        <h3>{{ a.title }}</h3>
+        <p>{{ a.body }}</p>
+        <p class="meta">{{ a.author_name }}, {{ a.created_at|day }}</p>
+      </article>
+      {% else %}
+        <p class="empty">Nothing posted yet.</p>
+      {% endfor %}
+    </section>
+  </aside>
+</div>
+
+<dialog id="project-dialog">
+  <form method="post" action="{{ url_for('create_project') }}" class="form">
+    <h2>Post a project</h2>
+    <label>Title <input type="text" name="title" required></label>
+    <label>What is it?
+      <textarea name="description" rows="3" required></textarea>
+    </label>
+    <label>Tech stack <input type="text" name="tech_stack" placeholder="Flask, SQLite"></label>
+    <label>Skills you need <input type="text" name="looking_for" placeholder="UI design, Android"></label>
+    <label>GitHub link <input type="url" name="github_url" placeholder="https://github.com/..."></label>
+    <div class="actions">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Post project</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="profile-dialog">
+  <form method="post" action="{{ url_for('update_profile') }}" class="form">
+    <h2>Edit profile</h2>
+    <div class="row">
+      <label>Branch <input type="text" name="branch" value="{{ user.branch or '' }}"></label>
+      <label>Year
+        <select name="year">
+          <option value="">Select</option>
+          {% for y in range(1, 5) %}
+            <option value="{{ y }}" {{ 'selected' if user.year == y }}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <label>Skills (comma separated)
+      <input type="text" name="skills" value="{{ user.skills or '' }}" placeholder="Python, Flask, SQL">
+    </label>
+    <label>About you
+      <textarea name="bio" rows="3">{{ user.bio or '' }}</textarea>
+    </label>
+    <div class="actions">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Save profile</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}

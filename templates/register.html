@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Create account - Campus Connect AI{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<main class="auth-card">
+  <h1>Create your account</h1>
+  <form method="post" class="form">
+    <label>Full name
+      <input type="text" name="full_name" autocomplete="name" required>
+    </label>
+    <label>College email
+      <input type="email" name="email" autocomplete="email" required>
+    </label>
+    <label>Password
+      <input type="password" name="password" minlength="6" autocomplete="new-password" required>
+    </label>
+    <label>I am a
+      <select name="role" id="role-select">
+        <option value="student">Student</option>
+        <option value="faculty">Faculty member</option>
+      </select>
+    </label>
+    <div class="row">
+      <label>Branch
+        <input type="text" name="branch" placeholder="CSE">
+      </label>
+      <label id="year-field">Year
+        <select name="year">
+          <option value="">Select</option>
+          {% for y in range(1, 5) %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <button class="btn btn-primary" type="submit">Create account</button>
+  </form>
+  <p class="muted small">Already registered? <a href="{{ url_for('login') }}">Log in</a></p>
+</main>
+{% endblock %}
