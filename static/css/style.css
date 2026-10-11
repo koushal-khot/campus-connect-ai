@@ -138,3 +138,12 @@ dialog h2 { margin-bottom: 1rem; }
   .page-head { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { .flash { transition: none; } }
+
+/* ---------- Phase 2 additions ---------- */
+/* Author styles like .form label {display:flex} beat the browser's default
+   [hidden] rule, so make hidden win. (Fixes the year field in Phase 1.) */
+[hidden] { display: none !important; }
+.logout-form { margin: 0; }
+.sidebar-foot .link-btn { color: #fff; }
+.field-note { font-weight: 400; font-size: .85rem; color: var(--muted); }
+.auth-card .form .btn { width: 100%; }

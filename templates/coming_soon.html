@@ -3,8 +3,11 @@
 {% block body_class %}auth-page{% endblock %}
 {% block content %}
 <main class="auth-card">
-  <h1>Hi, {{ session.name }}</h1>
+  <h1>Hi, {{ current_user.full_name }}</h1>
   <p class="muted">The {{ role }} dashboard is planned for a later phase. Student features are live now.</p>
-  <a class="btn btn-primary" href="{{ url_for('logout') }}">Log out</a>
+  <form method="post" action="{{ url_for('logout') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-primary">Log out</button>
+  </form>
 </main>
 {% endblock %}

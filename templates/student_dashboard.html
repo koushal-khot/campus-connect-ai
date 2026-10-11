@@ -13,7 +13,10 @@
     </nav>
     <div class="sidebar-foot">
       <div class="who">{{ user.full_name }}</div>
-      <a href="{{ url_for('logout') }}">Log out</a>
+      <form method="post" action="{{ url_for('logout') }}" class="logout-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="link-btn">Log out</button>
+      </form>
     </div>
   </aside>
 
@@ -94,6 +97,7 @@
 
 <dialog id="project-dialog">
   <form method="post" action="{{ url_for('create_project') }}" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h2>Post a project</h2>
     <label>Title <input type="text" name="title" required></label>
     <label>What is it?
@@ -111,6 +115,7 @@
 
 <dialog id="profile-dialog">
   <form method="post" action="{{ url_for('update_profile') }}" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h2>Edit profile</h2>
     <div class="row">
       <label>Branch <input type="text" name="branch" value="{{ user.branch or '' }}"></label>

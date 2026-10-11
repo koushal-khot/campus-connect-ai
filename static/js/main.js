@@ -16,11 +16,17 @@ document.querySelectorAll("dialog").forEach((dlg) => {
   });
 });
 
-// Hide the year field on the register form when "Faculty" is chosen.
+// Register form: show only the fields that match the chosen role.
 const roleSelect = document.getElementById("role-select");
 const yearField = document.getElementById("year-field");
-if (roleSelect && yearField) {
-  const sync = () => (yearField.hidden = roleSelect.value !== "student");
+const adminField = document.getElementById("admin-field");
+if (roleSelect && yearField && adminField) {
+  const adminInput = adminField.querySelector("input");
+  const sync = () => {
+    yearField.hidden = roleSelect.value !== "student";
+    adminField.hidden = roleSelect.value !== "admin";
+    adminInput.required = roleSelect.value === "admin";
+  };
   roleSelect.addEventListener("change", sync);
   sync();
 }

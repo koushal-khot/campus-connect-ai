@@ -2,37 +2,67 @@
 {% block title %}Create account - Campus Connect AI{% endblock %}
 {% block body_class %}auth-page{% endblock %}
 {% block content %}
+{% set role = form.get('role', 'student') %}
 <main class="auth-card">
   <h1>Create your account</h1>
-  <form method="post" class="form">
+
+  <form method="post" action="{{ url_for('register') }}" class="form" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <label>Full name
-      <input type="text" name="full_name" autocomplete="name" required>
+      <input type="text" name="full_name" value="{{ form.get('full_name', '') }}"
+             autocomplete="name" maxlength="100" required>
     </label>
+
     <label>College email
-      <input type="email" name="email" autocomplete="email" required>
+      <input type="email" name="email" value="{{ form.get('email', '') }}"
+             autocomplete="email" maxlength="254" required>
     </label>
+
     <label>Password
-      <input type="password" name="password" minlength="6" autocomplete="new-password" required>
+      <input type="password" name="password" minlength="8" maxlength="128"
+             autocomplete="new-password" required>
+      <span class="field-note">At least 8 characters, with a letter and a number.</span>
     </label>
+
+    <label>Confirm password
+      <input type="password" name="confirm_password" minlength="8" maxlength="128"
+             autocomplete="new-password" required>
+    </label>
+
     <label>I am a
       <select name="role" id="role-select">
-        <option value="student">Student</option>
-        <option value="faculty">Faculty member</option>
+        <option value="student" {{ 'selected' if role == 'student' }}>Student</option>
+        <option value="faculty" {{ 'selected' if role == 'faculty' }}>Faculty member</option>
+        <option value="admin" {{ 'selected' if role == 'admin' }} {{ '' if admin_enabled else 'disabled' }}>
+          Admin{{ '' if admin_enabled else ' (invite only, currently off)' }}
+        </option>
       </select>
     </label>
+
     <div class="row">
-      <label>Branch
-        <input type="text" name="branch" placeholder="CSE">
+      <label>Branch or department
+        <input type="text" name="branch" value="{{ form.get('branch', '') }}"
+               placeholder="CSE" maxlength="50">
       </label>
       <label id="year-field">Year
         <select name="year">
           <option value="">Select</option>
-          {% for y in range(1, 5) %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+          {% for y in range(1, 5) %}
+            <option value="{{ y }}" {{ 'selected' if form.get('year') == y|string }}>{{ y }}</option>
+          {% endfor %}
         </select>
       </label>
     </div>
+
+    <label id="admin-field" hidden>Admin invite code
+      <input type="password" name="admin_code" autocomplete="off">
+      <span class="field-note">Your college IT team gives you this code.</span>
+    </label>
+
     <button class="btn btn-primary" type="submit">Create account</button>
   </form>
+
   <p class="muted small">Already registered? <a href="{{ url_for('login') }}">Log in</a></p>
 </main>
 {% endblock %}
