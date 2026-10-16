@@ -31,6 +31,8 @@ DATABASE = os.path.join(BASE_DIR, "campus_connect.db")
 
 # ---------- settings ----------
 ROLES = ("student", "faculty", "admin")
+ANNOUNCEMENT_CATEGORIES = ("general", "research", "lab", "event")
+VERDICTS = ("approved", "needs_changes", "mentoring")
 REQUIRE_APPROVAL = os.environ.get("REQUIRE_APPROVAL", "false").lower() == "true"
 ADMIN_INVITE_CODE = os.environ.get("ADMIN_INVITE_CODE", "")
 MAX_FAILED_ATTEMPTS = 5          # wrong passwords / codes allowed ...
@@ -416,6 +418,99 @@ def create_project():
     db.commit()
     flash("Project posted.", "success")
     return redirect(url_for("student_dashboard"))
+# ---------- faculty ----------
+@app.route("/faculty/dashboard")
+@role_required("faculty")
+def faculty_dashboard():
+    db = get_db()
+    uid = g.user["id"]
+
+    my_announcements = db.execute(
+        "SELECT * FROM announcements WHERE author_id = ? ORDER BY created_at DESC, id DESC",
+        (uid,)).fetchall()
+    # Projects nobody has reviewed yet come first, then newest.
+    projects = db.execute(
+        """SELECT p.*, u.full_name AS owner_name, u.branch AS owner_branch,
+                  u.year AS owner_year,
+                  r.verdict AS review_verdict, r.comment AS review_comment,
+                  f.full_name AS reviewer_name
+           FROM projects p JOIN users u ON u.id = p.owner_id
+           LEFT JOIN project_reviews r
+                  ON r.id = (SELECT MAX(id) FROM project_reviews WHERE project_id = p.id)
+           LEFT JOIN users f ON f.id = r.faculty_id
+           ORDER BY (r.id IS NULL) DESC, p.created_at DESC, p.id DESC LIMIT 50"""
+    ).fetchall()
+    stats = {
+        "unreviewed": db.execute(
+            """SELECT COUNT(*) FROM projects p
+               WHERE NOT EXISTS (SELECT 1 FROM project_reviews WHERE project_id = p.id)"""
+        ).fetchone()[0],
+        "my_reviews": db.execute(
+            "SELECT COUNT(*) FROM project_reviews WHERE faculty_id = ?", (uid,)).fetchone()[0],
+        "my_announcements": len(my_announcements),
+    }
+    return render_template("faculty_dashboard.html", projects=projects,
+                           my_announcements=my_announcements, stats=stats,
+                           categories=ANNOUNCEMENT_CATEGORIES, verdicts=VERDICTS)
+
+
+@app.route("/faculty/announcements", methods=["POST"])
+@role_required("faculty")
+def create_announcement():
+    title = request.form.get("title", "").strip()
+    body = request.form.get("body", "").strip()
+    category = request.form.get("category", "general")
+
+    if not title or len(title) > 120:
+        flash("Add a title (up to 120 characters).", "error")
+    elif not body or len(body) > 1000:
+        flash("Add the announcement text (up to 1000 characters).", "error")
+    elif category not in ANNOUNCEMENT_CATEGORIES:
+        flash("Pick a valid category.", "error")
+    else:
+        db = get_db()
+        db.execute(
+            "INSERT INTO announcements (author_id, title, body, category) VALUES (?, ?, ?, ?)",
+            (g.user["id"], title, body, category))
+        db.commit()
+        flash("Announcement posted. Students can see it now.", "success")
+    return redirect(url_for("faculty_dashboard"))
+
+
+@app.route("/faculty/announcements/<int:announcement_id>/delete", methods=["POST"])
+@role_required("faculty")
+def delete_announcement(announcement_id):
+    db = get_db()
+    # author_id in the WHERE clause: faculty can only delete their own posts
+    cur = db.execute("DELETE FROM announcements WHERE id = ? AND author_id = ?",
+                     (announcement_id, g.user["id"]))
+    db.commit()
+    flash("Announcement deleted." if cur.rowcount else "Announcement not found.",
+          "success" if cur.rowcount else "error")
+    return redirect(url_for("faculty_dashboard"))
+
+
+@app.route("/faculty/projects/<int:project_id>/review", methods=["POST"])
+@role_required("faculty")
+def review_project(project_id):
+    verdict = request.form.get("verdict", "")
+    comment = request.form.get("comment", "").strip()
+    db = get_db()
+
+    if db.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
+        flash("That project no longer exists.", "error")
+    elif verdict not in VERDICTS:
+        flash("Choose a verdict for the project.", "error")
+    elif not comment or len(comment) > 1000:
+        flash("Write some feedback (up to 1000 characters).", "error")
+    else:
+        db.execute(
+            "INSERT INTO project_reviews (project_id, faculty_id, verdict, comment) "
+            "VALUES (?, ?, ?, ?)", (project_id, g.user["id"], verdict, comment))
+        db.commit()
+        flash("Feedback sent to the student.", "success")
+    return redirect(url_for("faculty_dashboard"))
+
 
 
 if __name__ == "__main__":

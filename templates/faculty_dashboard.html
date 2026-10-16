@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Faculty dashboard - Campus Connect AI{% endblock %}
+
+{% block content %}
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">Campus Connect<span>AI</span></div>
+    <nav>
+      <a class="active" href="{{ url_for('faculty_dashboard') }}">Dashboard</a>
+      <a class="soon" aria-disabled="true">Mentoring requests <small>soon</small></a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="who">{{ current_user.full_name }}</div>
+      <form method="post" action="{{ url_for('logout') }}" class="logout-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="link-btn">Log out</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1>Student projects</h1>
+        <p class="muted">
+          {% if stats.unreviewed %}
+            {{ stats.unreviewed }} project{{ '' if stats.unreviewed == 1 else 's' }} still
+            {{ 'needs' if stats.unreviewed == 1 else 'need' }} feedback. They are listed first.
+          {% else %}
+            Every project has feedback. New ones will appear at the top.
+          {% endif %}
+        </p>
+      </div>
+    </header>
+
+    <section class="panel feed">
+      {% for p in projects %}
+      <article class="project">
+        <div class="project-top">
+          <h3>{{ p.title }}</h3>
+          {% if p.review_verdict %}
+            <span class="badge badge-{{ p.review_verdict }}">{{ p.review_verdict.replace('_', ' ') }}</span>
+          {% else %}
+            <span class="badge badge-new">awaiting review</span>
+          {% endif %}
+        </div>
+        <p>{{ p.description }}</p>
+        <div class="chips">
+          {% for t in p.tech_stack|csv %}<span class="chip">{{ t }}</span>{% endfor %}
+        </div>
+        {% if p.looking_for %}<p class="needs"><strong>Needs:</strong> {{ p.looking_for }}</p>{% endif %}
+        <p class="meta">
+          {{ p.owner_name }}{% if p.owner_branch %}, {{ p.owner_branch }}{% endif %}{% if p.owner_year %} year {{ p.owner_year }}{% endif %},
+          {{ p.created_at|day }}
+          {% if p.github_url %}- <a href="{{ p.github_url }}" target="_blank" rel="noopener noreferrer">GitHub</a>{% endif %}
+        </p>
+
+        {% if p.review_verdict %}
+        <div class="mentor-note">
+          <strong>{{ p.reviewer_name }}</strong>
+          <p>{{ p.review_comment }}</p>
+        </div>
+        {% endif %}
+
+        <details class="review">
+          <summary>{{ 'Add more feedback' if p.review_verdict else 'Review this project' }}</summary>
+          <form method="post" action="{{ url_for('review_project', project_id=p.id) }}" class="form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>Verdict
+              <select name="verdict" required>
+                {% for v in verdicts %}<option value="{{ v }}">{{ v.replace('_', ' ')|capitalize }}</option>{% endfor %}
+              </select>
+            </label>
+            <label>Feedback
+              <textarea name="comment" rows="3" maxlength="1000" required
+                        placeholder="What works, what to change, how you can help"></textarea>
+            </label>
+            <div class="actions">
+              <button type="submit" class="btn btn-primary btn-small">Send feedback</button>
+            </div>
+          </form>
+        </details>
+      </article>
+      {% else %}
+        <p class="empty">No student projects yet.</p>
+      {% endfor %}
+    </section>
+  </main>
+
+  <aside class="rail">
+    <section class="panel">
+      <h2>At a glance</h2>
+      <dl class="stats stats-first">
+        <div><dt>Need feedback</dt><dd>{{ stats.unreviewed }}</dd></div>
+        <div><dt>You reviewed</dt><dd>{{ stats.my_reviews }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel">
+      <h2>Post an announcement</h2>
+      <form method="post" action="{{ url_for('create_announcement') }}" class="form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Title
+          <input type="text" name="title" maxlength="120" required>
+        </label>
+        <label>Category
+          <select name="category">
+            {% for c in categories %}<option value="{{ c }}">{{ c|capitalize }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Details
+          <textarea name="body" rows="4" maxlength="1000" required></textarea>
+        </label>
+        <button type="submit" class="btn btn-primary">Post announcement</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Your announcements</h2>
+      {% for a in my_announcements %}
+      <article class="notice">
+        <div class="notice-head">
+          <h3>{{ a.title }}</h3>
+          <span class="badge badge-cat">{{ a.category }}</span>
+        </div>
+        <p>{{ a.body }}</p>
+        <div class="notice-foot">
+          <span class="meta">{{ a.created_at|day }}</span>
+          <form method="post" action="{{ url_for('delete_announcement', announcement_id=a.id) }}"
+                onsubmit="return confirm('Delete this announcement?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-btn danger">Delete</button>
+          </form>
+        </div>
+      </article>
+      {% else %}
+        <p class="empty">You haven't posted anything yet.</p>
+      {% endfor %}
+    </section>
+  </aside>
+</div>
+{% endblock %}
