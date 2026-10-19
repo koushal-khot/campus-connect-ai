@@ -343,6 +343,8 @@ def logout():
 def dashboard():
     if g.user["role"] == "student":
         return redirect(url_for("student_dashboard"))
+    elif g.user["role"] == "faculty":
+        return redirect(url_for("faculty_dashboard"))
     return render_template("coming_soon.html", role=g.user["role"])
 
 
@@ -419,6 +421,7 @@ def create_project():
     flash("Project posted.", "success")
     return redirect(url_for("student_dashboard"))
 # ---------- faculty ----------
+
 @app.route("/faculty/dashboard")
 @role_required("faculty")
 def faculty_dashboard():

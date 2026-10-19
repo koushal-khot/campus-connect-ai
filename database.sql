@@ -38,7 +38,16 @@ CREATE TABLE IF NOT EXISTS announcements (
                         CHECK (category IN ('general', 'research', 'lab', 'event')),
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS project_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    faculty_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    verdict TEXT NOT NULL CHECK (verdict IN ('approved', 'needs_changes', 'mentoring')),
+    comment TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
-CREATE INDEX IF NOT EXISTS idx_projects_owner      ON projects(owner_id);
+CREATE INDEX IF NOT EXISTS idx_projects_owner     ON projects(owner_id);
 CREATE INDEX IF NOT EXISTS idx_projects_created    ON projects(created_at);
 CREATE INDEX IF NOT EXISTS idx_announcements_date  ON announcements(created_at);
+CREATE INDEX IF NOT EXISTS idx_reviews_project     ON project_reviews(project_id);
