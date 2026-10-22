@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title%}Admin dashboard - Campus Connect AI{% endblock %}
+{%block content %}
+<div class="shell">
+    <aside class="sidebar">
+      <div class="brand">Campus Connect<span>AI</span></div> 
+      <nav>
+        <a class="active" href="#overview">Overview</a>
+        <a href="#approvals">Approvals {% if stats.pending %}<small>{{ status.pending }}</small>{% endif %}</a>
+        <a href="#moderation">Moderation</a>
+        <a href="#broadcast">Broadcast</a>
+    </nav> 
+    <div class="sidebar-foot">
+        <div class="who">{{ current_user.full_name}}</div>
+        <form method="post" action="{{ url_for('logout') }}" class="logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token()}}">
+            <button type="submit" class="link-btn">Log out</button>
+        </form>
+    </div>
+    </aside>
+    <main class="main">
+        <header class="page-head" id="overview">
+            <div>
+               <h1>Platform overview</h1>
+               <p class="muted">
+                {% if stats.pending %}
+                {{ stats.pending }} registration {{ '' if stats.pending == 1 else 's'}} waiting for your decision.
+                {% elseif %}
+                No registration are waiting. You're all caught up.
+                {% elseif %}
+               </p>
+            </div>
+        </header>
+        <section class="stat-grid" aria-label="Platform at a glance">
+            <div class="panel stat-card"><dt>Approved students</dt><dd>{{ stats.active_projects}}</dd>
+            </div>
+            <div class="panel stat-card">
+              <dt>Projects reviewed</dt>
+              <dd>{{ stats.reviewed_project }} <span class="of">of {{ stats.total_projects }}</span></dd> 
+
+            </div>
+            </section>
+             <section class="panel" id="approvals">
+      <h2>Registration approvals</h2>
+      {% if pending %}
+      <ul class="queue">
+        {% for u in pending %}
+        <li class="queue-item">
+          <div>
+            <strong>{{ u.full_name }}</strong>
+            <span class="badge badge-role">{{ u.role }}</span>
+            <p class="meta">
+              {{ u.email }}{% if u.branch %}, {{ u.branch }}{% endif %}{% if u.year %}, year {{ u.year }}{% endif %},
+              registered {{ u.created_at|day }}
+            </p>
+          </div>
+          <div class="inline-actions">
+            <form method="post" action="{{ url_for('approve_user', user_id=u.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-primary btn-small">Approve</button>
+            </form>
+            <form method="post" action="{{ url_for('reject_user', user_id=u.id) }}"
+                  onsubmit="return confirm('Reject {{ u.full_name|e }}? They will not be able to log in.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-small btn-danger">Reject</button>
+            </form>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+        <p class="empty">No pending registrations.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel" id="moderation">
+      <h2>Content moderation</h2>
+
+      <h3 class="table-title">All projects ({{ projects|length }})</h3>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Project</th><th>Owner</th><th>Posted</th><th></th></tr></thead>
+          <tbody>
+            {% for p in projects %}
+            <tr>
+              <td>
+                <strong>{{ p.title }}</strong>
+                <span class="badge badge-{{ p.status }}">{{ p.status.replace('_', ' ') }}</span>
+                <p class="snippet">{{ p.description|truncate(140) }}</p>
+                {% if p.review_count %}<p class="meta">{{ p.review_count }} review{{ '' if p.review_count == 1 else 's' }}</p>{% endif %}
+              </td>
+              <td>{{ p.owner_name }}</td>
+              <td class="nowrap">{{ p.created_at|day }}</td>
+              <td>
+                <form method="post" action="{{ url_for('admin_delete_project', project_id=p.id) }}"
+                      onsubmit="return confirm('Delete this project and its reviews? This cannot be undone.');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty">No projects on the platform.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="table-title">All announcements ({{ announcements|length }})</h3>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Announcement</th><th>Author</th><th>Posted</th><th></th></tr></thead>
+          <tbody>
+            {% for a in announcements %}
+            <tr>
+              <td>
+                <strong>{{ a.title }}</strong>
+                {% if a.is_broadcast %}<span class="badge badge-broadcast">Official</span>
+                {% else %}<span class="badge badge-cat">{{ a.category }}</span>{% endif %}
+                <p class="snippet">{{ a.body|truncate(140) }}</p>
+              </td>
+              <td>{{ a.author_name }} <span class="meta">({{ a.author_role }})</span></td>
+              <td class="nowrap">{{ a.created_at|day }}</td>
+              <td>
+                <form method="post" action="{{ url_for('admin_delete_announcement', announcement_id=a.id) }}"
+                      onsubmit="return confirm('Delete this announcement?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty">No announcements yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <aside class="rail" id="broadcast">
+    <section class="panel panel-broadcast">
+      <h2>Send a broadcast</h2>
+      <p class="muted small">Pinned at the top of every student and faculty dashboard, marked Official.</p>
+      <form method="post" action="{{ url_for('create_broadcast') }}" class="form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Title
+          <input type="text" name="title" maxlength="120" required>
+        </label>
+        <label>Message
+          <textarea name="body" rows="4" maxlength="1000" required></textarea>
+        </label>
+        <button type="submit" class="btn btn-primary">Send to everyone</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Active broadcasts</h2>
+      {% for b in broadcasts %}
+      <article class="notice notice-broadcast">
+        <h3>{{ b.title }}</h3>
+        <p>{{ b.body }}</p>
+        <div class="notice-foot">
+          <span class="meta">{{ b.created_at|day }}</span>
+          <form method="post" action="{{ url_for('admin_delete_announcement', announcement_id=b.id) }}"
+                onsubmit="return confirm('Remove this broadcast?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-btn danger">Remove</button>
+          </form>
+        </div>
+      </article>
+      {% else %}
+        <p class="empty">No broadcasts are live.</p>
+      {% endfor %}
+    </section>
+  </aside>
+</div>
+{% endblock %}
+
+
+    </main>
+
+</div>

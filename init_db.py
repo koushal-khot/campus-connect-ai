@@ -27,6 +27,8 @@ def main():
     conn.execute("PRAGMA foreign_keys = ON")
     with open(SCHEMA, encoding="utf-8") as f:
         conn.executescript(f.read())
+    
+    ensure_column(conn, "announcements", "is_broadcast", "INTEGER NOT NULL DEFAULT 0")
 
     for name, email, pw, role, branch, year, skills, bio in DEMO_USERS:
         conn.execute(
@@ -35,6 +37,14 @@ def main():
                VALUES (?, ?, ?, ?, 'approved', ?, ?, ?, ?)""",
             (name, email, generate_password_hash(pw), role, branch, year, skills, bio),
         )
+
+    conn.execute(
+        """INSERT OR IGNORE INTO users
+           (full_name, email, password_hash, role, status, branch, year, skills)
+           VALUES ('Riya Deshmukh', 'riya@campus.edu', ?, 'student', 'pending',
+                   'ECE', 2, 'Embedded C, IoT')""",
+        (generate_password_hash("riya12345"),),
+    )
 
     faculty = conn.execute("SELECT id FROM users WHERE email = 'faculty@campus.edu'").fetchone()
     student = conn.execute("SELECT id FROM users WHERE email = 'student@campus.edu'").fetchone()
@@ -67,7 +77,7 @@ def main():
     print(f"Database ready at {DATABASE}")
     print("Demo logins: student@campus.edu / student123, "
           "faculty@campus.edu / faculty123, admin@campus.edu / admin123")
-
+    print("Delete or change these demo accounts before deploying anywhere public.")
 
 if __name__ == "__main__":
     main()

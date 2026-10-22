@@ -33,6 +33,9 @@ DATABASE = os.path.join(BASE_DIR, "campus_connect.db")
 ROLES = ("student", "faculty", "admin")
 ANNOUNCEMENT_CATEGORIES = ("general", "research", "lab", "event")
 VERDICTS = ("approved", "needs_changes", "mentoring")
+DASHBOARD_ENDPOINTS = {"student": "student_dashboard", "faculty": "faculty_dashboard",
+                       "admin": "admin_dashboard"}
+
 REQUIRE_APPROVAL = os.environ.get("REQUIRE_APPROVAL", "false").lower() == "true"
 ADMIN_INVITE_CODE = os.environ.get("ADMIN_INVITE_CODE", "")
 MAX_FAILED_ATTEMPTS = 5          # wrong passwords / codes allowed ...
@@ -68,6 +71,10 @@ def close_db(_exc):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
+def scalar(sql, params=()):
+    """Run a query that returns one value, e.g. scalar("SELECT COUNT(*) FROM users")."""
+    return get_db().execute(sql, params).fetchone()[0]
 
 
 # ---------- CSRF protection ----------
@@ -341,11 +348,13 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    if g.user["role"] == "student":
-        return redirect(url_for("student_dashboard"))
-    elif g.user["role"] == "faculty":
-        return redirect(url_for("faculty_dashboard"))
-    return render_template("coming_soon.html", role=g.user["role"])
+    return redirect(url_for(DASHBOARD_ENDPOINTS[g.user["role"]]))
+
+    # if g.user["role"] == "student":
+    #     return redirect(url_for("student_dashboard"))
+    # elif g.user["role"] == "faculty":
+    #     return redirect(url_for("faculty_dashboard"))
+    # return render_template("coming_soon.html", role=g.user["role"])
 
 
 @app.route("/student/dashboard")
@@ -514,6 +523,117 @@ def review_project(project_id):
         flash("Feedback sent to the student.", "success")
     return redirect(url_for("faculty_dashboard"))
 
+
+# ---------- admin ----------
+@app.route("/admin/dashboard")
+@role_required("admin")
+def admin_dashboard():
+    db = get_db()
+    stats = {
+        "students": scalar("SELECT COUNT(*) FROM users WHERE role = 'student' AND status = 'approved'"),
+        "faculty": scalar("SELECT COUNT(*) FROM users WHERE role = 'faculty' AND status = 'approved'"),
+        "active_projects": scalar("SELECT COUNT(*) FROM projects WHERE status IN ('open', 'in_progress')"),
+        "total_projects": scalar("SELECT COUNT(*) FROM projects"),
+        "reviewed_projects": scalar("SELECT COUNT(DISTINCT project_id) FROM project_reviews"),
+        "pending": scalar("SELECT COUNT(*) FROM users WHERE status = 'pending'"),
+    }
+    pending = db.execute(
+        """SELECT id, full_name, email, role, branch, year, created_at
+           FROM users WHERE status = 'pending' ORDER BY created_at, id"""
+    ).fetchall()
+    projects = db.execute(
+        """SELECT p.id, p.title, p.description, p.status, p.created_at,
+                  u.full_name AS owner_name,
+                  (SELECT COUNT(*) FROM project_reviews WHERE project_id = p.id) AS review_count
+           FROM projects p JOIN users u ON u.id = p.owner_id
+           ORDER BY p.created_at DESC, p.id DESC LIMIT 100"""
+    ).fetchall()
+    announcements = db.execute(
+        """SELECT a.id, a.title, a.body, a.category, a.is_broadcast, a.created_at,
+                  u.full_name AS author_name, u.role AS author_role
+           FROM announcements a JOIN users u ON u.id = a.author_id
+           ORDER BY a.created_at DESC, a.id DESC LIMIT 100"""
+    ).fetchall()
+    broadcasts = db.execute(
+        """SELECT id, title, body, created_at FROM announcements
+           WHERE is_broadcast = 1 ORDER BY created_at DESC, id DESC LIMIT 5"""
+    ).fetchall()
+    return render_template("admin_dashboard.html", stats=stats, pending=pending,
+                           projects=projects, announcements=announcements,
+                           broadcasts=broadcasts)
+
+
+def _decide_registration(user_id, new_status, done_message):
+    """Move a *pending* student/faculty account to approved or rejected."""
+    db = get_db()
+    user = db.execute(
+        "SELECT full_name FROM users WHERE id = ? AND status = 'pending' AND role != 'admin'",
+        (user_id,)).fetchone()
+    if user is None:
+        flash("That request was already handled or doesn't exist.", "error")
+    else:
+        # status = 'pending' in the WHERE clause: a double click can't flip a decision
+        db.execute("UPDATE users SET status = ? WHERE id = ? AND status = 'pending'",
+                   (new_status, user_id))
+        db.commit()
+        flash(done_message.format(name=user["full_name"]), "success")
+    return redirect(url_for("admin_dashboard") + "#approvals")
+
+
+@app.route("/admin/users/<int:user_id>/approve", methods=["POST"])
+@role_required("admin")
+def approve_user(user_id):
+    return _decide_registration(user_id, "approved", "{name} approved. They can log in now.")
+
+
+@app.route("/admin/users/<int:user_id>/reject", methods=["POST"])
+@role_required("admin")
+def reject_user(user_id):
+    return _decide_registration(user_id, "rejected", "{name} rejected. They can't log in.")
+
+
+@app.route("/admin/projects/<int:project_id>/delete", methods=["POST"])
+@role_required("admin")
+def admin_delete_project(project_id):
+    db = get_db()
+    # ON DELETE CASCADE also removes the project's reviews
+    cur = db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+    db.commit()
+    flash("Project removed." if cur.rowcount else "That project no longer exists.",
+          "success" if cur.rowcount else "error")
+    return redirect(url_for("admin_dashboard") + "#moderation")
+
+
+@app.route("/admin/announcements/<int:announcement_id>/delete", methods=["POST"])
+@role_required("admin")
+def admin_delete_announcement(announcement_id):
+    db = get_db()
+    cur = db.execute("DELETE FROM announcements WHERE id = ?", (announcement_id,))
+    db.commit()
+    flash("Announcement removed." if cur.rowcount else "That announcement no longer exists.",
+          "success" if cur.rowcount else "error")
+    return redirect(url_for("admin_dashboard") + "#moderation")
+
+
+@app.route("/admin/broadcasts", methods=["POST"])
+@role_required("admin")
+def create_broadcast():
+    title = request.form.get("title", "").strip()
+    body = request.form.get("body", "").strip()
+
+    if not title or len(title) > 120:
+        flash("Add a title (up to 120 characters).", "error")
+    elif not body or len(body) > 1000:
+        flash("Add the broadcast text (up to 1000 characters).", "error")
+    else:
+        db = get_db()
+        db.execute(
+            """INSERT INTO announcements (author_id, title, body, category, is_broadcast)
+               VALUES (?, ?, ?, 'general', 1)""",
+            (g.user["id"], title, body))
+        db.commit()
+        flash("Broadcast sent. It's pinned for students and faculty.", "success")
+    return redirect(url_for("admin_dashboard") + "#broadcast")
 
 
 if __name__ == "__main__":
