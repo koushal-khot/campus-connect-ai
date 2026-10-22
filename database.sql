@@ -1,32 +1,27 @@
--- Campus Connect AI - Phase 1 schema (SQLite)
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     full_name     TEXT    NOT NULL,
     email         TEXT    NOT NULL UNIQUE,
     password_hash TEXT    NOT NULL,
     role          TEXT    NOT NULL CHECK (role IN ('student', 'faculty', 'admin')),
-    status        TEXT    NOT NULL DEFAULT 'approved'
-                          CHECK (status IN ('pending', 'approved', 'rejected')),
-    branch        TEXT,                -- e.g. CSE, ECE
-    year          INTEGER CHECK (year BETWEEN 1 AND 5),
-    skills        TEXT,                -- comma-separated: "Python, Flask, SQL"
+    status        TEXT    NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    branch        TEXT,
+    year          INTEGER,
+    skills        TEXT,
     bio           TEXT,
     created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS projects (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    owner_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    title        TEXT    NOT NULL,
-    description  TEXT    NOT NULL,
-    tech_stack   TEXT,                 -- comma-separated
-    looking_for  TEXT,                 -- skills the team still needs
-    github_url   TEXT,
-    status       TEXT    NOT NULL DEFAULT 'open'
-                         CHECK (status IN ('open', 'in_progress', 'completed')),
-    created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title       TEXT    NOT NULL,
+    description TEXT    NOT NULL,
+    tech_stack  TEXT    NOT NULL,
+    looking_for TEXT,
+    github_link TEXT,
+    status      TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'completed')),
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS announcements (
@@ -36,18 +31,15 @@ CREATE TABLE IF NOT EXISTS announcements (
     body        TEXT    NOT NULL,
     category    TEXT    NOT NULL DEFAULT 'general'
                         CHECK (category IN ('general', 'research', 'lab', 'event')),
+    is_broadcast INTEGER DEFAULT 0,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
-CREATE TABLE IF NOT EXISTS project_reviews (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    faculty_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    verdict TEXT NOT NULL CHECK (verdict IN ('approved', 'needs_changes', 'mentoring')),
-    comment TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
 
-CREATE INDEX IF NOT EXISTS idx_projects_owner     ON projects(owner_id);
-CREATE INDEX IF NOT EXISTS idx_projects_created    ON projects(created_at);
-CREATE INDEX IF NOT EXISTS idx_announcements_date  ON announcements(created_at);
-CREATE INDEX IF NOT EXISTS idx_reviews_project     ON project_reviews(project_id);
+CREATE TABLE IF NOT EXISTS project_reviews (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    faculty_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    feedback    TEXT    NOT NULL,
+    rating      INTEGER,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);

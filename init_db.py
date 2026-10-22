@@ -28,8 +28,7 @@ def main():
     with open(SCHEMA, encoding="utf-8") as f:
         conn.executescript(f.read())
     
-    ensure_column(conn, "announcements", "is_broadcast", "INTEGER NOT NULL DEFAULT 0")
-
+    
     for name, email, pw, role, branch, year, skills, bio in DEMO_USERS:
         conn.execute(
             """INSERT OR IGNORE INTO users

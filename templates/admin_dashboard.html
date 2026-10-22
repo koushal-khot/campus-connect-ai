@@ -6,7 +6,7 @@
       <div class="brand">Campus Connect<span>AI</span></div> 
       <nav>
         <a class="active" href="#overview">Overview</a>
-        <a href="#approvals">Approvals {% if stats.pending %}<small>{{ status.pending }}</small>{% endif %}</a>
+        <a href="#approvals">Approvals {% if stats.pending %}<small>{{ stats.pending }}</small>{% endif %}</a>
         <a href="#moderation">Moderation</a>
         <a href="#broadcast">Broadcast</a>
     </nav> 
@@ -25,22 +25,22 @@
                <p class="muted">
                 {% if stats.pending %}
                 {{ stats.pending }} registration {{ '' if stats.pending == 1 else 's'}} waiting for your decision.
-                {% elseif %}
+                {% else %}
                 No registration are waiting. You're all caught up.
-                {% elseif %}
+                {% endif %}
                </p>
             </div>
         </header>
         <section class="stat-grid" aria-label="Platform at a glance">
-            <div class="panel stat-card"><dt>Approved students</dt><dd>{{ stats.active_projects}}</dd>
+            <div class="panel stat-card"><dt>Approved students</dt><dd>{{ stats.students }}</dd>
             </div>
             <div class="panel stat-card">
               <dt>Projects reviewed</dt>
-              <dd>{{ stats.reviewed_project }} <span class="of">of {{ stats.total_projects }}</span></dd> 
-
+              <dd>{{ stats.reviewed_projects }} <span class="of">of {{ stats.total_projects }}</span></dd> 
             </div>
-            </section>
-             <section class="panel" id="approvals">
+        </section>
+        
+         <section class="panel" id="approvals">
       <h2>Registration approvals</h2>
       {% if pending %}
       <ul class="queue">
@@ -176,8 +176,3 @@
   </aside>
 </div>
 {% endblock %}
-
-
-    </main>
-
-</div>
